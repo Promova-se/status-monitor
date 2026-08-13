@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getCurrentAdmin } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/monitor";
 import { runCheckForSite } from "@/lib/checks";
+import { collectInsight } from "@/lib/insights";
 
 export type SiteFormState = { error?: string; ok?: boolean };
 
@@ -47,13 +48,25 @@ export async function createSiteAction(
     },
   });
 
-  // Primeira checagem imediata para já mostrar status.
+  // Primeira checagem + coleta de SEO imediatas para já mostrar dados.
   runCheckForSite({ id: site.id, name: site.name, url: site.url }).catch(
     () => {},
   );
+  collectInsight({ id: site.id, url: site.url }).catch(() => {});
 
   revalidatePath("/");
   return { ok: true };
+}
+
+// "Atualizar SEO" — recoleta os sinais externos sob demanda.
+export async function refreshInsightAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const site = await db.site.findUnique({ where: { id } });
+  if (site) {
+    await collectInsight({ id: site.id, url: site.url });
+  }
+  revalidatePath(`/sites/${id}`);
 }
 
 export async function deleteSiteAction(formData: FormData): Promise<void> {

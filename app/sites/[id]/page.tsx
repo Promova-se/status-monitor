@@ -4,6 +4,7 @@ import { getCurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import AppHeader from "@/components/AppHeader";
 import LatencyChart, { type Point } from "@/components/LatencyChart";
+import InsightPanel from "@/components/InsightPanel";
 import { checkNowAction } from "@/app/sites/actions";
 import {
   statusOf,
@@ -39,6 +40,7 @@ export default async function SiteDetailPage({
     orderBy: { openedAt: "desc" },
     take: 20,
   });
+  const insight = await db.insight.findUnique({ where: { siteId: id } });
 
   const lastCheck = checks[0] ?? null;
   const openIncidents = incidents.filter((i) => i.closedAt === null);
@@ -137,6 +139,10 @@ export default async function SiteDetailPage({
               profunda, use as ferramentas do Google.
             </p>
           </div>
+        </div>
+
+        <div className="mt-6">
+          <InsightPanel insight={insight} siteId={site.id} />
         </div>
 
         <div className="mt-6 card p-5">

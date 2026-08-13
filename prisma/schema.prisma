@@ -53,9 +53,43 @@ model Site {
 
   checks    Check[]
   incidents Incident[]
+  insight   Insight?
 
   @@index([active])
   @@index([category])
+}
+
+// Snapshot mais recente de sinais "por fora" (SEO on-page, tecnologias, performance).
+model Insight {
+  id          String   @id @default(cuid())
+  siteId      String   @unique
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  collectedAt DateTime @default(now())
+
+  // SEO on-page
+  title         String?
+  titleLength   Int?
+  metaDesc      String?
+  metaDescLength Int?
+  h1Count       Int?
+  h1Text        String?
+  canonical     String?
+  indexable     Boolean?
+  ogPresent     Boolean?
+  wordCount     Int?
+
+  // Dados estruturados e tecnologias (listas separadas por vírgula)
+  schemaTypes String?
+  techStack   String?
+
+  // Tamanho do site
+  sitemapUrls Int?
+
+  // Performance (PageSpeed) — preenchido na etapa seguinte
+  psMobile  Int?
+  psDesktop Int?
+  lcpMs     Int?
+  cls       Float?
 }
 
 // Cada checagem periódica feita pelo worker.
