@@ -1,5 +1,8 @@
 import { timeAgo } from "@/lib/format";
-import { refreshInsightAction } from "@/app/sites/actions";
+import {
+  refreshInsightAction,
+  refreshPageSpeedAction,
+} from "@/app/sites/actions";
 
 type Insight = {
   collectedAt: Date;
@@ -16,7 +19,41 @@ type Insight = {
   schemaTypes: string | null;
   techStack: string | null;
   sitemapUrls: number | null;
+  psMobile: number | null;
+  psDesktop: number | null;
+  lcpMs: number | null;
+  cls: number | null;
 } | null;
+
+function scoreColor(v: number | null): string {
+  if (v == null) return "text-muted";
+  if (v >= 90) return "text-good";
+  if (v >= 50) return "text-warn";
+  return "text-bad";
+}
+function lcpColor(ms: number | null): string {
+  if (ms == null) return "text-muted";
+  if (ms <= 2500) return "text-good";
+  if (ms <= 4000) return "text-warn";
+  return "text-bad";
+}
+function clsColor(v: number | null): string {
+  if (v == null) return "text-muted";
+  if (v <= 0.1) return "text-good";
+  if (v <= 0.25) return "text-warn";
+  return "text-bad";
+}
+
+function ScoreBadge({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="flex-1 rounded-xl bg-bg/40 p-3 text-center">
+      <p className="text-xs text-muted">{label}</p>
+      <p className={`text-2xl font-semibold ${scoreColor(value)}`}>
+        {value ?? "—"}
+      </p>
+    </div>
+  );
+}
 
 function lenColor(len: number | null, min: number, max: number): string {
   if (len == null) return "text-muted";
@@ -63,14 +100,51 @@ export default function InsightPanel({
 }) {
   return (
     <div className="card p-5">
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <h3 className="font-semibold text-text">SEO &amp; sinais externos</h3>
-        <form action={refreshInsightAction}>
-          <input type="hidden" name="id" value={siteId} />
-          <button className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10">
-            Atualizar
-          </button>
-        </form>
+        <div className="flex items-center gap-1">
+          <form action={refreshPageSpeedAction}>
+            <input type="hidden" name="id" value={siteId} />
+            <button className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10">
+              Medir performance
+            </button>
+          </form>
+          <form action={refreshInsightAction}>
+            <input type="hidden" name="id" value={siteId} />
+            <button className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 transition hover:bg-rose-500/10">
+              Atualizar SEO
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Performance / Core Web Vitals */}
+      <div className="mb-4">
+        <div className="flex gap-2">
+          <ScoreBadge label="Performance mobile" value={insight?.psMobile ?? null} />
+          <ScoreBadge label="Performance desktop" value={insight?.psDesktop ?? null} />
+        </div>
+        <div className="mt-2 flex gap-2">
+          <div className="flex-1 rounded-xl bg-bg/40 p-3 text-center">
+            <p className="text-xs text-muted">LCP</p>
+            <p className={`text-lg font-semibold ${lcpColor(insight?.lcpMs ?? null)}`}>
+              {insight?.lcpMs != null
+                ? `${(insight.lcpMs / 1000).toFixed(1)}s`
+                : "—"}
+            </p>
+          </div>
+          <div className="flex-1 rounded-xl bg-bg/40 p-3 text-center">
+            <p className="text-xs text-muted">CLS</p>
+            <p className={`text-lg font-semibold ${clsColor(insight?.cls ?? null)}`}>
+              {insight?.cls ?? "—"}
+            </p>
+          </div>
+        </div>
+        {insight?.psMobile == null && (
+          <p className="mt-2 text-center text-xs text-muted/70">
+            Clique em “Medir performance” (leva ~30s).
+          </p>
+        )}
       </div>
 
       {!insight || insight.title == null ? (

@@ -1,5 +1,6 @@
 import { runCheckForAllActive } from "../lib/checks";
 import { collectInsightsForAllActive } from "../lib/insights";
+import { collectPageSpeedForAllActive } from "../lib/pagespeed";
 import { db } from "../lib/db";
 
 const INTERVAL_MIN = Number(process.env.CHECK_INTERVAL_MINUTES ?? 5);
@@ -36,8 +37,9 @@ async function insightTick() {
   const start = Date.now();
   try {
     const n = await collectInsightsForAllActive();
+    await collectPageSpeedForAllActive();
     console.log(
-      `[${new Date().toISOString()}] insights de ${n} site(s) coletados em ${
+      `[${new Date().toISOString()}] insights + performance de ${n} site(s) em ${
         Date.now() - start
       } ms`,
     );

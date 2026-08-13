@@ -6,6 +6,7 @@ import { getCurrentAdmin } from "@/lib/auth";
 import { normalizeUrl } from "@/lib/monitor";
 import { runCheckForSite } from "@/lib/checks";
 import { collectInsight } from "@/lib/insights";
+import { collectPageSpeed } from "@/lib/pagespeed";
 
 export type SiteFormState = { error?: string; ok?: boolean };
 
@@ -65,6 +66,17 @@ export async function refreshInsightAction(formData: FormData): Promise<void> {
   const site = await db.site.findUnique({ where: { id } });
   if (site) {
     await collectInsight({ id: site.id, url: site.url });
+  }
+  revalidatePath(`/sites/${id}`);
+}
+
+// "Medir performance" — roda o PageSpeed (mais lento, ~30s).
+export async function refreshPageSpeedAction(formData: FormData): Promise<void> {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const site = await db.site.findUnique({ where: { id } });
+  if (site) {
+    await collectPageSpeed({ id: site.id, url: site.url });
   }
   revalidatePath(`/sites/${id}`);
 }
