@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -8,9 +9,18 @@ import { sslDaysLeft } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+type Category = "mine" | "competitor";
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
   const admin = await getCurrentAdmin();
   if (!admin) redirect("/login");
+
+  const { tab } = await searchParams;
+  const activeTab: Category = tab === "competitor" ? "competitor" : "mine";
 
   const rows = await db.site.findMany({
     orderBy: { createdAt: "asc" },
@@ -23,15 +33,25 @@ export default async function DashboardPage() {
     },
   });
 
-  const sites: SiteView[] = rows.map((s) => ({
+  const all: (SiteView & { category: string })[] = rows.map((s) => ({
     id: s.id,
     name: s.name,
     url: s.url,
     kind: s.kind,
     active: s.active,
+    category: s.category,
     lastCheck: s.checks[0] ?? null,
     incidents: s.incidents,
   }));
+
+  const mineCount = all.filter((s) => s.category !== "competitor").length;
+  const compCount = all.filter((s) => s.category === "competitor").length;
+
+  const sites = all.filter((s) =>
+    activeTab === "competitor"
+      ? s.category === "competitor"
+      : s.category !== "competitor",
+  );
 
   const online = sites.filter(
     (s) =>
@@ -49,16 +69,29 @@ export default async function DashboardPage() {
       <AppHeader email={admin.email} />
 
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-text">
               Visão geral
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Acompanhe a saúde de todos os seus domínios em um só lugar.
+              {activeTab === "competitor"
+                ? "Acompanhe os sites dos seus concorrentes."
+                : "Acompanhe a saúde de todos os seus domínios em um só lugar."}
             </p>
           </div>
-          <AddSiteModal />
+          <AddSiteModal defaultCategory={activeTab} />
+        </div>
+
+        {/* Abas */}
+        <div className="mb-8 inline-flex rounded-xl border border-line bg-surface/60 p-1">
+          <Tab href="/?tab=mine" active={activeTab === "mine"} label="Meus sites" count={mineCount} />
+          <Tab
+            href="/?tab=competitor"
+            active={activeTab === "competitor"}
+            label="Concorrentes"
+            count={compCount}
+          />
         </div>
 
         <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -78,14 +111,19 @@ export default async function DashboardPage() {
         {sites.length === 0 ? (
           <div className="card flex flex-col items-center justify-center px-6 py-16 text-center">
             <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-500/15">
-              <span className="text-3xl">🌐</span>
+              <span className="text-3xl">
+                {activeTab === "competitor" ? "🔎" : "🌐"}
+              </span>
             </div>
             <h3 className="text-lg font-medium text-text">
-              Nenhum site cadastrado ainda
+              {activeTab === "competitor"
+                ? "Nenhum concorrente cadastrado ainda"
+                : "Nenhum site cadastrado ainda"}
             </h3>
             <p className="mt-1 max-w-sm text-sm text-muted">
-              Clique em “Adicionar site” para cadastrar seu primeiro domínio ou
-              subdomínio e começar o monitoramento.
+              {activeTab === "competitor"
+                ? "Cadastre os sites dos seus concorrentes para acompanhá-los ao lado dos seus."
+                : "Clique em “Adicionar site” para cadastrar seu primeiro domínio ou subdomínio."}
             </p>
           </div>
         ) : (
@@ -97,6 +135,38 @@ export default async function DashboardPage() {
         )}
       </main>
     </div>
+  );
+}
+
+function Tab({
+  href,
+  active,
+  label,
+  count,
+}: {
+  href: string;
+  active: boolean;
+  label: string;
+  count: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "bg-rose-500 text-white shadow-glow"
+          : "text-muted hover:text-text"
+      }`}
+    >
+      {label}
+      <span
+        className={`ml-2 rounded-full px-1.5 py-0.5 text-xs ${
+          active ? "bg-white/20" : "bg-surface-2 text-muted"
+        }`}
+      >
+        {count}
+      </span>
+    </Link>
   );
 }
 

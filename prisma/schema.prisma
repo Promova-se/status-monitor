@@ -47,6 +47,7 @@ model Site {
   name      String
   url       String
   kind      String   @default("domain") // "domain" | "subdomain"
+  category  String   @default("mine") // "mine" (meus sites) | "competitor" (concorrentes)
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
@@ -54,6 +55,7 @@ model Site {
   incidents Incident[]
 
   @@index([active])
+  @@index([category])
 }
 
 // Cada checagem periódica feita pelo worker.

@@ -7,7 +7,11 @@ import { createSiteAction, type SiteFormState } from "@/app/sites/actions";
 
 const initial: SiteFormState = {};
 
-export default function AddSiteModal() {
+export default function AddSiteModal({
+  defaultCategory = "mine",
+}: {
+  defaultCategory?: "mine" | "competitor";
+}) {
   const [open, setOpen] = useState(false);
   const [state, formAction, pending] = useActionState(
     createSiteAction,
@@ -25,7 +29,10 @@ export default function AddSiteModal() {
   return (
     <>
       <button className="btn-primary" onClick={() => setOpen(true)}>
-        <span className="text-lg leading-none">+</span> Adicionar site
+        <span className="text-lg leading-none">+</span>{" "}
+        {defaultCategory === "competitor"
+          ? "Adicionar concorrente"
+          : "Adicionar site"}
       </button>
 
       {open && (
@@ -80,14 +87,30 @@ export default function AddSiteModal() {
                 </p>
               </div>
 
-              <div>
-                <label className="label" htmlFor="kind">
-                  Tipo
-                </label>
-                <select id="kind" name="kind" className="input">
-                  <option value="domain">Domínio</option>
-                  <option value="subdomain">Subdomínio</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="label" htmlFor="kind">
+                    Tipo
+                  </label>
+                  <select id="kind" name="kind" className="input">
+                    <option value="domain">Domínio</option>
+                    <option value="subdomain">Subdomínio</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label" htmlFor="category">
+                    Grupo
+                  </label>
+                  <select
+                    id="category"
+                    name="category"
+                    className="input"
+                    defaultValue={defaultCategory}
+                  >
+                    <option value="mine">Meus sites</option>
+                    <option value="competitor">Concorrentes</option>
+                  </select>
+                </div>
               </div>
 
               {state.error && (

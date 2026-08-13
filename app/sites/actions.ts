@@ -23,6 +23,7 @@ export async function createSiteAction(
   const name = String(formData.get("name") ?? "").trim();
   const rawUrl = String(formData.get("url") ?? "").trim();
   const kind = String(formData.get("kind") ?? "domain");
+  const category = String(formData.get("category") ?? "mine");
 
   if (!name) return { error: "Dê um nome para o site." };
   if (!rawUrl) return { error: "Informe a URL." };
@@ -38,7 +39,12 @@ export async function createSiteAction(
   if (existing) return { error: "Esse endereço já está cadastrado." };
 
   const site = await db.site.create({
-    data: { name, url, kind: kind === "subdomain" ? "subdomain" : "domain" },
+    data: {
+      name,
+      url,
+      kind: kind === "subdomain" ? "subdomain" : "domain",
+      category: category === "competitor" ? "competitor" : "mine",
+    },
   });
 
   // Primeira checagem imediata para já mostrar status.
