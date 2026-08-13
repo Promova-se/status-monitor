@@ -1,0 +1,19 @@
+[Unit]
+Description=Status - painel Next.js
+After=network.target
+
+[Service]
+Type=simple
+# Ajuste o usuario e o caminho conforme seu servidor:
+User=status
+WorkingDirectory=/opt/status
+Environment=NODE_ENV=production
+Environment=PORT=3000
+# Carrega as variaveis do .env (DATABASE_URL, SESSION_SECRET, etc.)
+EnvironmentFile=/opt/status/.env
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

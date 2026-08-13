@@ -1,0 +1,89 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Admin único. Só existe 1 registro; não há rota de cadastro no app.
+model Admin {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  totpSecret   String? // 2FA opcional (fase futura)
+  createdAt    DateTime  @default(now())
+  sessions     Session[]
+}
+
+// Sessão de login (cookie httpOnly guarda o token; aqui fica o hash dele).
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  adminId   String
+  admin     Admin    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  @@index([adminId])
+}
+
+// Tentativas de login para rate-limit (anti força-bruta).
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  ip        String
+  success   Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([ip, createdAt])
+}
+
+// Sites monitorados (domínios e subdomínios).
+model Site {
+  id        String   @id @default(cuid())
+  name      String
+  url       String
+  kind      String   @default("domain") // "domain" | "subdomain"
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  checks    Check[]
+  incidents Incident[]
+
+  @@index([active])
+}
+
+// Cada checagem periódica feita pelo worker.
+model Check {
+  id           String   @id @default(cuid())
+  siteId       String
+  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  checkedAt    DateTime @default(now())
+  online       Boolean
+  statusCode   Int?
+  latencyMs    Int?
+  sslValid     Boolean?
+  sslExpiresAt DateTime?
+  hasGa4       Boolean?
+  hasGsc       Boolean?
+  error        String?
+
+  @@index([siteId, checkedAt])
+}
+
+// Incidentes abertos/fechados (problemas críticos).
+model Incident {
+  id        String    @id @default(cuid())
+  siteId    String
+  site      Site      @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  type      String // offline | http_error | ssl_expiring | slow | ga4_missing | gsc_missing
+  severity  String    @default("critical") // critical | warning
+  message   String?
+  openedAt  DateTime  @default(now())
+  closedAt  DateTime?
+
+  @@index([siteId, closedAt])
+}
