@@ -24,6 +24,13 @@ type Check = {
 
 type Incident = { id: string; severity: string };
 
+type Insight = {
+  psMobile: number | null;
+  indexable: boolean | null;
+  techStack: string | null;
+  metaDesc: string | null;
+} | null;
+
 export type SiteView = {
   id: string;
   name: string;
@@ -32,7 +39,22 @@ export type SiteView = {
   active: boolean;
   lastCheck: Check;
   incidents: Incident[];
+  insight?: Insight;
 };
+
+const PLATFORMS = ["WooCommerce", "Shopify", "Nuvemshop", "WordPress"];
+
+function platformOf(techStack: string | null): string | null {
+  if (!techStack) return null;
+  const techs = techStack.split(",");
+  return PLATFORMS.find((p) => techs.includes(p)) ?? null;
+}
+
+function perfColor(v: number): string {
+  if (v >= 90) return "bg-good/10 text-good";
+  if (v >= 50) return "bg-warn/10 text-warn";
+  return "bg-bad/10 text-bad";
+}
 
 function TagBadge({ ok, label }: { ok: boolean | null; label: string }) {
   if (ok === null)
@@ -123,6 +145,32 @@ export default function SiteCard({ site }: { site: SiteView }) {
         <TagBadge ok={site.lastCheck?.hasGa4 ?? null} label="GA4" />
         <TagBadge ok={site.lastCheck?.hasGsc ?? null} label="Search Console" />
       </div>
+
+      {site.insight &&
+        (site.insight.psMobile != null ||
+          site.insight.indexable === false ||
+          platformOf(site.insight.techStack)) && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {site.insight.psMobile != null && (
+              <span
+                className={`badge ${perfColor(site.insight.psMobile)}`}
+                title="Performance mobile (PageSpeed)"
+              >
+                ⚡ {site.insight.psMobile}
+              </span>
+            )}
+            {site.insight.indexable === false && (
+              <span className="badge bg-bad/10 text-bad" title="Página com noindex">
+                🔴 noindex
+              </span>
+            )}
+            {platformOf(site.insight.techStack) && (
+              <span className="badge bg-surface-2 text-muted">
+                {platformOf(site.insight.techStack)}
+              </span>
+            )}
+          </div>
+        )}
 
       <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
         <span className="text-xs text-muted">

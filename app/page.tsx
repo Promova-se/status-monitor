@@ -30,6 +30,14 @@ export default async function DashboardPage({
         where: { closedAt: null },
         select: { id: true, severity: true },
       },
+      insight: {
+        select: {
+          psMobile: true,
+          indexable: true,
+          techStack: true,
+          metaDesc: true,
+        },
+      },
     },
   });
 
@@ -42,6 +50,7 @@ export default async function DashboardPage({
     category: s.category,
     lastCheck: s.checks[0] ?? null,
     incidents: s.incidents,
+    insight: s.insight,
   }));
 
   const mineCount = all.filter((s) => s.category !== "competitor").length;
