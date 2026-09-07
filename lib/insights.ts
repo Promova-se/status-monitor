@@ -31,8 +31,21 @@ function detectTech(html: string): string[] {
   if (has(/googletagmanager\.com\/gtm\.js/i) || has(/GTM-[A-Z0-9]+/)) t.add("Google Tag Manager");
   if (has(/gtag\(['"]config['"],\s*['"]AW-/i) || has(/googleadservices\.com/i)) t.add("Google Ads");
   if (has(/connect\.facebook\.net\/.*fbevents\.js/i) || has(/fbq\(\s*['"]init['"]/)) t.add("Meta Pixel");
-  if (has(/wp-content\/plugins\/woocommerce/i) || has(/class=["'][^"']*woocommerce/i)) t.add("WooCommerce");
-  else if (has(/wp-content\//i) || has(/name=["']generator["'][^>]*WordPress/i)) t.add("WordPress");
+  // WooCommerce (implica WordPress) — sinais específicos do plugin
+  const isWoo =
+    has(/wp-content\/plugins\/woocommerce/i) ||
+    has(/class=["'][^"']*woocommerce[^"']*["']/i) ||
+    has(/woocommerce-[a-z]/i);
+  // WordPress — exige sinal FORTE (não basta um "wp-content/" solto, que pode
+  // vir de uma imagem hotlinkada de outro site WP).
+  const isWordPress =
+    has(/name=["']generator["'][^>]*WordPress/i) ||
+    has(/\/wp-includes\//i) ||
+    has(/\/wp-json[\/"']/i) ||
+    has(/wp-content\/(themes|plugins)\//i);
+  if (isWoo) t.add("WooCommerce");
+  else if (isWordPress) t.add("WordPress");
+
   if (has(/cdn\.shopify\.com/i) || has(/Shopify\./)) t.add("Shopify");
   if (has(/tiendanube|nuvemshop/i)) t.add("Nuvemshop");
   if (has(/hotjar\.com/i)) t.add("Hotjar");
