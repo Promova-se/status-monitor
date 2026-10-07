@@ -90,6 +90,11 @@ model Insight {
   psDesktop Int?
   lcpMs     Int?
   cls       Float?
+
+  // Atualizações de WordPress/plugins (só sites WordPress)
+  wpVersion   String?
+  wpLatest    String?
+  pluginsJson String? // JSON: [{slug, installed, latest, outdated}]
 }
 
 // Cada checagem periódica feita pelo worker.

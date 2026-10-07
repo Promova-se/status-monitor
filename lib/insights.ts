@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { db } from "./db";
+import { collectWpUpdates } from "./wpupdates";
 
 const TIMEOUT_MS = 15000;
 const UA =
@@ -140,6 +141,23 @@ export async function collectInsight(site: {
   const techStack = detectTech(res.html);
   const sitemapUrls = await countSitemapUrls(site.url);
 
+  // Atualizações de WordPress/plugins — só se for WordPress.
+  const isWordPress =
+    techStack.includes("WordPress") || techStack.includes("WooCommerce");
+  let wpVersion: string | null = null;
+  let wpLatest: string | null = null;
+  let pluginsJson: string | null = null;
+  if (isWordPress) {
+    try {
+      const wp = await collectWpUpdates(res.html);
+      wpVersion = wp.wpVersion;
+      wpLatest = wp.wpLatest;
+      pluginsJson = wp.plugins.length ? JSON.stringify(wp.plugins) : null;
+    } catch {
+      // falha ao consultar api.wordpress.org — mantém null
+    }
+  }
+
   const data = {
     collectedAt: new Date(),
     title,
@@ -155,6 +173,9 @@ export async function collectInsight(site: {
     schemaTypes: schemaTypes.length ? schemaTypes.join(",") : null,
     techStack: techStack.length ? techStack.join(",") : null,
     sitemapUrls,
+    wpVersion,
+    wpLatest,
+    pluginsJson,
   };
 
   await db.insight.upsert({
