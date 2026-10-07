@@ -1,11 +1,19 @@
-// Detecta versões de WordPress e plugins "por fora" (do HTML) e compara com as
-// versões mais recentes do repositório oficial (api.wordpress.org). Só WordPress.
+// Detecta versões de WordPress e plugins "por fora" e compara com as versões
+// mais recentes do repositório oficial (api.wordpress.org). Só WordPress.
+//
+// Versão instalada do plugin vem do readme.txt do próprio plugin (o "Stable tag"
+// é a versão real). O ?ver= dos assets NÃO é usado para versão porque é pouco
+// confiável (muitos plugins põem ali a versão do WP ou um hash de cache).
+// Quando não dá para confirmar com segurança, o status é "unknown" (não
+// verificável) — nunca um "ok" falso.
+
+export type PluginStatus = "ok" | "outdated" | "unknown";
 
 export type PluginInfo = {
   slug: string;
   installed: string | null;
   latest: string | null;
-  outdated: boolean;
+  status: PluginStatus;
 };
 
 export type WpUpdates = {
@@ -15,7 +23,9 @@ export type WpUpdates = {
   plugins: PluginInfo[];
 };
 
-// Cache simples em memória (1h) para as consultas à api.wordpress.org.
+const MAX_PLUGINS = 30;
+
+// Cache (1h) só para as consultas à api.wordpress.org (versões globais).
 const cache = new Map<string, { value: unknown; at: number }>();
 const TTL_MS = 60 * 60 * 1000;
 
@@ -42,6 +52,23 @@ async function cachedJson(url: string): Promise<unknown> {
   }
 }
 
+async function fetchText(url: string, timeoutMs = 7000): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    const res = await fetch(url, {
+      signal: ctrl.signal,
+      redirect: "follow",
+      headers: { "User-Agent": "StatusMonitor/1.0" },
+    });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    return await res.text();
+  } catch {
+    return null;
+  }
+}
+
 // Compara versões tipo "7.1.3". Retorna -1, 0 ou 1.
 export function compareVersions(a: string, b: string): number {
   const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
@@ -63,20 +90,27 @@ function parseWpVersion(html: string): string | null {
   return m ? m[1] : null;
 }
 
-// Extrai {slug -> maior versão válida vista} dos assets ?ver= dos plugins.
-function parsePlugins(html: string): Map<string, string> {
-  const found = new Map<string, string>();
-  const re =
-    /wp-content\/plugins\/([a-z0-9][a-z0-9._-]*)\/[^"'\s)]*?[?&]ver=([0-9][0-9.]*)/gi;
+// Lista os slugs de plugins referenciados no HTML (não depende de ?ver=).
+function parsePluginSlugs(html: string): string[] {
+  const slugs = new Set<string>();
+  const re = /wp-content\/plugins\/([a-z0-9][a-z0-9._-]*)\//gi;
   let m: RegExpExecArray | null;
-  while ((m = re.exec(html)) !== null) {
-    const slug = m[1].toLowerCase();
-    const ver = m[2];
-    if (!VALID_VER.test(ver)) continue;
-    const cur = found.get(slug);
-    if (!cur || compareVersions(ver, cur) > 0) found.set(slug, ver);
+  while ((m = re.exec(html)) !== null) slugs.add(m[1].toLowerCase());
+  return [...slugs].slice(0, MAX_PLUGINS);
+}
+
+// Lê o "Stable tag" do readme.txt do plugin instalado (versão real).
+async function readmeStableTag(
+  origin: string,
+  slug: string,
+): Promise<string | null> {
+  for (const name of ["readme.txt", "README.txt"]) {
+    const txt = await fetchText(`${origin}/wp-content/plugins/${slug}/${name}`);
+    if (!txt) continue;
+    const m = txt.match(/stable tag:\s*([0-9]+(?:\.[0-9]+){0,3})/i);
+    if (m && VALID_VER.test(m[1])) return m[1];
   }
-  return found;
+  return null;
 }
 
 async function coreLatest(): Promise<string | null> {
@@ -94,24 +128,39 @@ async function pluginLatest(slug: string): Promise<string | null> {
   return data.version ?? null;
 }
 
-export async function collectWpUpdates(html: string): Promise<WpUpdates> {
+export async function collectWpUpdates(
+  html: string,
+  baseUrl: string,
+): Promise<WpUpdates> {
   const wpVersion = parseWpVersion(html);
-  const installed = parsePlugins(html);
+  const slugs = parsePluginSlugs(html);
+  const origin = new URL(baseUrl).origin;
 
   const wpLatest = await coreLatest();
   const wpOutdated =
     !!wpVersion && !!wpLatest && compareVersions(wpVersion, wpLatest) < 0;
 
-  const plugins: PluginInfo[] = [];
-  for (const [slug, inst] of installed) {
-    const latest = await pluginLatest(slug);
-    const outdated = !!latest && compareVersions(inst, latest) < 0;
-    plugins.push({ slug, installed: inst, latest, outdated });
-  }
-  // Desatualizados primeiro, depois alfabético.
+  const plugins: PluginInfo[] = await Promise.all(
+    slugs.map(async (slug) => {
+      const [installed, latest] = await Promise.all([
+        readmeStableTag(origin, slug),
+        pluginLatest(slug),
+      ]);
+      let status: PluginStatus = "unknown";
+      if (installed && latest) {
+        const cmp = compareVersions(installed, latest);
+        // instalado > latest = provável slug trocado/premium → não afirmar "ok".
+        if (cmp < 0) status = "outdated";
+        else if (cmp === 0) status = "ok";
+        else status = "unknown";
+      }
+      return { slug, installed, latest, status };
+    }),
+  );
+
+  const rank = { outdated: 0, ok: 1, unknown: 2 };
   plugins.sort(
-    (a, b) =>
-      Number(b.outdated) - Number(a.outdated) || a.slug.localeCompare(b.slug),
+    (a, b) => rank[a.status] - rank[b.status] || a.slug.localeCompare(b.slug),
   );
 
   return { wpVersion, wpLatest, wpOutdated, plugins };

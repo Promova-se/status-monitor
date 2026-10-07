@@ -12,7 +12,7 @@ export default function WpUpdatesList({
   coreOutdated: boolean;
   plugins: PluginInfo[];
 }) {
-  const outdatedCount = plugins.filter((p) => p.outdated).length;
+  const outdatedCount = plugins.filter((p) => p.status === "outdated").length;
 
   return (
     <div>
@@ -54,16 +54,16 @@ export default function WpUpdatesList({
               className="flex items-center justify-between gap-3 rounded-lg bg-bg/40 px-3 py-2"
             >
               <span className="min-w-0 truncate text-sm text-text">{p.slug}</span>
-              {p.latest == null ? (
-                <span className="shrink-0 text-xs text-muted">
-                  {p.installed} · não verificável
-                </span>
-              ) : p.outdated ? (
+              {p.status === "outdated" ? (
                 <span className="badge shrink-0 bg-warn/10 text-warn">
                   🟡 {p.installed} → {p.latest}
                 </span>
-              ) : (
+              ) : p.status === "ok" ? (
                 <span className="shrink-0 text-xs text-good">✓ {p.installed}</span>
+              ) : (
+                <span className="shrink-0 text-xs text-muted">
+                  {p.installed ? `${p.installed} · ` : ""}não verificável
+                </span>
               )}
             </li>
           ))}
@@ -71,7 +71,8 @@ export default function WpUpdatesList({
       )}
 
       <p className="mt-2 text-xs text-muted/70">
-        “Não verificável” = plugin premium (fora do repositório oficial).
+        “Não verificável” = plugin premium, ou o site não expõe a versão real
+        (readme.txt). Nesses casos não afirmamos “ok”.
       </p>
     </div>
   );

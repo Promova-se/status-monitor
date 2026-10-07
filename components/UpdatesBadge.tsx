@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { PluginInfo } from "@/lib/wpupdates";
 import WpUpdatesList from "@/components/WpUpdatesList";
 
@@ -19,7 +20,24 @@ export default function UpdatesBadge({
 }) {
   const [open, setOpen] = useState(false);
   const outdatedCount =
-    (coreOutdated ? 1 : 0) + plugins.filter((p) => p.outdated).length;
+    (coreOutdated ? 1 : 0) +
+    plugins.filter((p) => p.status === "outdated").length;
+  // Há algo que não conseguimos confirmar? Então não afirmamos "em dia".
+  const uncertain =
+    !wpVersion || plugins.some((p) => p.status === "unknown");
+
+  const label =
+    outdatedCount > 0
+      ? `🟡 ${outdatedCount} atualizaç${outdatedCount > 1 ? "ões" : "ão"}`
+      : uncertain
+        ? "WP · ver detalhes"
+        : "WP ✓ em dia";
+  const tone =
+    outdatedCount > 0
+      ? "bg-warn/10 text-warn"
+      : uncertain
+        ? "bg-surface-2 text-muted"
+        : "bg-good/10 text-good";
 
   return (
     <>
@@ -28,23 +46,19 @@ export default function UpdatesBadge({
           e.stopPropagation();
           setOpen(true);
         }}
-        className={`badge transition hover:brightness-125 ${
-          outdatedCount > 0
-            ? "bg-warn/10 text-warn"
-            : "bg-surface-2 text-muted"
-        }`}
+        className={`badge transition hover:brightness-125 ${tone}`}
         title="Ver atualizações de WordPress e plugins"
       >
-        {outdatedCount > 0
-          ? `🟡 ${outdatedCount} atualizaç${outdatedCount > 1 ? "ões" : "ão"}`
-          : "WP ✓ em dia"}
+        {label}
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-          onClick={() => setOpen(false)}
-        >
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={() => setOpen(false)}
+          >
           <div
             className="card max-h-[85vh] w-full max-w-md overflow-y-auto p-6"
             onClick={(e) => e.stopPropagation()}
@@ -72,8 +86,9 @@ export default function UpdatesBadge({
               plugins={plugins}
             />
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -149,7 +149,7 @@ export async function collectInsight(site: {
   let pluginsJson: string | null = null;
   if (isWordPress) {
     try {
-      const wp = await collectWpUpdates(res.html);
+      const wp = await collectWpUpdates(res.html, site.url);
       wpVersion = wp.wpVersion;
       wpLatest = wp.wpLatest;
       pluginsJson = wp.plugins.length ? JSON.stringify(wp.plugins) : null;
