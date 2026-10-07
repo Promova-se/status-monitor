@@ -11,6 +11,8 @@ import {
   toggleSiteAction,
   deleteSiteAction,
 } from "@/app/sites/actions";
+import { compareVersions, type PluginInfo } from "@/lib/wpupdates";
+import UpdatesBadge from "@/components/UpdatesBadge";
 
 type Check = {
   online: boolean;
@@ -29,6 +31,9 @@ type Insight = {
   indexable: boolean | null;
   techStack: string | null;
   metaDesc: string | null;
+  wpVersion: string | null;
+  wpLatest: string | null;
+  pluginsJson: string | null;
 } | null;
 
 export type SiteView = {
@@ -79,6 +84,22 @@ export default function SiteCard({ site }: { site: SiteView }) {
   const hasWarning = site.incidents.some((i) => i.severity === "warning");
   const status = statusOf(site.lastCheck, hasCritical, hasWarning);
   const ssl = sslDaysLeft(site.lastCheck?.sslExpiresAt ?? null);
+
+  const techs = site.insight?.techStack?.split(",") ?? [];
+  const isWP = techs.includes("WordPress") || techs.includes("WooCommerce");
+  let wpPlugins: PluginInfo[] = [];
+  if (site.insight?.pluginsJson) {
+    try {
+      const arr = JSON.parse(site.insight.pluginsJson);
+      if (Array.isArray(arr)) wpPlugins = arr;
+    } catch {
+      // json inválido — ignora
+    }
+  }
+  const coreOutdated =
+    !!site.insight?.wpVersion &&
+    !!site.insight?.wpLatest &&
+    compareVersions(site.insight.wpVersion, site.insight.wpLatest) < 0;
 
   return (
     <div className="card p-5">
@@ -149,7 +170,8 @@ export default function SiteCard({ site }: { site: SiteView }) {
       {site.insight &&
         (site.insight.psMobile != null ||
           site.insight.indexable === false ||
-          platformOf(site.insight.techStack)) && (
+          platformOf(site.insight.techStack) ||
+          isWP) && (
           <div className="mt-2 flex flex-wrap gap-2">
             {site.insight.psMobile != null && (
               <span
@@ -168,6 +190,15 @@ export default function SiteCard({ site }: { site: SiteView }) {
               <span className="badge bg-surface-2 text-muted">
                 {platformOf(site.insight.techStack)}
               </span>
+            )}
+            {isWP && (
+              <UpdatesBadge
+                siteName={site.name}
+                wpVersion={site.insight.wpVersion}
+                wpLatest={site.insight.wpLatest}
+                coreOutdated={coreOutdated}
+                plugins={wpPlugins}
+              />
             )}
           </div>
         )}
